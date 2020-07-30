@@ -62,8 +62,8 @@
       [self statusTextForState:RTCIceConnectionStateNew];
   self.view = _videoCallView;
 
-  RTCAudioSession *session = [RTCAudioSession sharedInstance];
-  [session addDelegate:self];
+//  RTCAudioSession *session = [RTCAudioSession sharedInstance];
+//  [session addDelegate:self];
 }
 
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
@@ -159,23 +159,23 @@
 }
 
 - (void)videoCallViewDidChangeRoute:(ARDVideoCallView *)view {
-  AVAudioSessionPortOverride override = AVAudioSessionPortOverrideNone;
-  if (_portOverride == AVAudioSessionPortOverrideNone) {
-    override = AVAudioSessionPortOverrideSpeaker;
-  }
-  [RTCDispatcher dispatchAsyncOnType:RTCDispatcherTypeAudioSession
-                               block:^{
-    RTCAudioSession *session = [RTCAudioSession sharedInstance];
-    [session lockForConfiguration];
-    NSError *error = nil;
-    if ([session overrideOutputAudioPort:override error:&error]) {
-      self.portOverride = override;
-    } else {
-      RTCLogError(@"Error overriding output port: %@",
-                  error.localizedDescription);
-    }
-    [session unlockForConfiguration];
-  }];
+//  AVAudioSessionPortOverride override = AVAudioSessionPortOverrideNone;
+//  if (_portOverride == AVAudioSessionPortOverrideNone) {
+//    override = AVAudioSessionPortOverrideSpeaker;
+//  }
+//  [RTCDispatcher dispatchAsyncOnType:RTCDispatcherTypeAudioSession
+//                               block:^{
+//    RTCAudioSession *session = [RTCAudioSession sharedInstance];
+//    [session lockForConfiguration];
+//    NSError *error = nil;
+//    if ([session overrideOutputAudioPort:override error:&error]) {
+//      self.portOverride = override;
+//    } else {
+//      RTCLogError(@"Error overriding output port: %@",
+//                  error.localizedDescription);
+//    }
+//    [session unlockForConfiguration];
+//  }];
 }
 
 - (void)videoCallViewDidEnableStats:(ARDVideoCallView *)view {

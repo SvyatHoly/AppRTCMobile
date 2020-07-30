@@ -11,7 +11,7 @@
 #import "ARDVideoCallView.h"
 
 #import <AVFoundation/AVFoundation.h>
-
+#import <WebRTC/RTCCVPixelBuffer.h>
 #import <WebRTC/RTCEAGLVideoView.h>
 #if defined(RTC_SUPPORTS_METAL)
 #import <WebRTC/RTCMTLVideoView.h>
@@ -24,7 +24,7 @@ static CGFloat const kButtonSize = 48;
 static CGFloat const kLocalVideoViewSize = 120;
 static CGFloat const kLocalVideoViewPadding = 8;
 static CGFloat const kStatusBarHeight = 20;
-
+static NSTimer *timer;
 @interface ARDVideoCallView () <RTCVideoViewDelegate>
 @end
 
@@ -41,13 +41,17 @@ static CGFloat const kStatusBarHeight = 20;
 @synthesize statsView = _statsView;
 @synthesize delegate = _delegate;
 
+RTCEAGLVideoView *rtceagl;
+AVAudioRecorder *recorder;
+
 - (instancetype)initWithFrame:(CGRect)frame {
   if (self = [super initWithFrame:frame]) {
 
 #if defined(RTC_SUPPORTS_METAL)
     _remoteVideoView = [[RTCMTLVideoView alloc] initWithFrame:CGRectZero];
 #else
-    RTCEAGLVideoView *remoteView = [[RTCEAGLVideoView alloc] initWithFrame:CGRectZero];
+      rtceagl = [RTCEAGLVideoView alloc];
+    RTCEAGLVideoView *remoteView = [rtceagl initWithFrame:CGRectZero];
     remoteView.delegate = self;
     _remoteVideoView = remoteView;
 #endif
@@ -112,6 +116,7 @@ static CGFloat const kStatusBarHeight = 20;
 }
 
 - (void)layoutSubviews {
+        [self prepareRecording];
   CGRect bounds = self.bounds;
   if (_remoteVideoSize.width > 0 && _remoteVideoSize.height > 0) {
     // Aspect fill remote video into bounds.
@@ -182,6 +187,56 @@ static CGFloat const kStatusBarHeight = 20;
     _remoteVideoSize = size;
   }
   [self setNeedsLayout];
+    [self createTimer];
+
+}
+
+- (void)prepareRecording
+{
+    NSMutableDictionary *recordSetting = [[NSMutableDictionary alloc] init];
+    
+    [recordSetting setValue:[NSNumber numberWithInt:kAudioFormatMPEG4AAC] forKey:AVFormatIDKey];
+    [recordSetting setValue:[NSNumber numberWithFloat:44100.0] forKey:AVSampleRateKey];
+    [recordSetting setValue:[NSNumber numberWithInt: 2] forKey:AVNumberOfChannelsKey];
+    
+    // Set the audio file
+    NSArray *pathComponents = [NSArray arrayWithObjects:
+                               [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject],
+                               @"MyAudioMemo1.m4a",
+                               nil];
+    NSURL *outputFileURL = [NSURL fileURLWithPathComponents:pathComponents];
+    
+    // Initiate and prepare the recorder
+    recorder = [[AVAudioRecorder alloc] initWithURL:outputFileURL settings:recordSetting error:NULL];
+//    recorder.delegate = self;
+    recorder.meteringEnabled = YES;
+    [recorder prepareToRecord];
+}
+
+- (void)createTimer
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        timer = [NSTimer scheduledTimerWithTimeInterval:1.0f  target:self selector:@selector(updateTimer:) userInfo:nil repeats:YES];
+    });
+}
+
+- (void)updateTimer:(NSTimer *)theTimer {
+    RTCVideoFrame *x = rtceagl.videoFrame;
+    RTCCVPixelBuffer* remotePixelBuffer = (RTCCVPixelBuffer *)x.buffer;
+
+    CVPixelBufferRef pixelBuffer = remotePixelBuffer.pixelBuffer;
+    CIImage *ciImage = [CIImage imageWithCVPixelBuffer:pixelBuffer];
+
+    CIContext *temporaryContext = [CIContext contextWithOptions:nil];
+    CGImageRef videoImage = [temporaryContext
+                       createCGImage:ciImage
+                       fromRect:CGRectMake(0, 0,
+                              CVPixelBufferGetWidth(pixelBuffer),
+                              CVPixelBufferGetHeight(pixelBuffer))];
+
+    UIImage *uiImage = [UIImage imageWithCGImage:videoImage];
+    CGImageRelease(videoImage);
+//    NSLog(x);
 }
 
 #pragma mark - Private
@@ -191,7 +246,15 @@ static CGFloat const kStatusBarHeight = 20;
 }
 
 - (void)onRouteChange:(id)sender {
-  [_delegate videoCallViewDidChangeRoute:self];
+    
+    if (recorder.isRecording == true) {
+        NSLog(@"stop");
+        [recorder stop];
+    } else {
+        NSLog(@"start");
+        [recorder record];
+    }
+    //  [_delegate videoCallViewDidChangeRoute:self];
 }
 
 - (void)onHangup:(id)sender {
