@@ -59,8 +59,8 @@ static NSString *const loopbackLaunchProcessArgument = @"loopback";
 
   RTCAudioSessionConfiguration *webRTCConfig =
       [RTCAudioSessionConfiguration webRTCConfiguration];
-  webRTCConfig.categoryOptions = webRTCConfig.categoryOptions |
-      AVAudioSessionCategoryOptionDefaultToSpeaker;
+    webRTCConfig.category = AVAudioSessionCategoryPlayAndRecord;
+  webRTCConfig.categoryOptions = AVAudioSessionCategoryOptionMixWithOthers;
   [RTCAudioSessionConfiguration setWebRTCConfiguration:webRTCConfig];
 
   RTCAudioSession *session = [RTCAudioSession sharedInstance];
@@ -154,9 +154,12 @@ static NSString *const loopbackLaunchProcessArgument = @"loopback";
 - (void)viewControllerDidFinish:(ARDVideoCallViewController *)viewController {
   if (![viewController isBeingDismissed]) {
     RTCLog(@"Dismissing VC");
-    [self dismissViewControllerAnimated:YES completion:^{
-      [self restartAudioPlayerIfNeeded];
-    }];
+      dispatch_async(dispatch_get_main_queue(), ^{
+              [self dismissViewControllerAnimated:YES completion:^{
+            [self restartAudioPlayerIfNeeded];
+          }];
+      });
+
   }
   RTCAudioSession *session = [RTCAudioSession sharedInstance];
   session.isAudioEnabled = NO;
@@ -204,9 +207,12 @@ static NSString *const loopbackLaunchProcessArgument = @"loopback";
 - (void)configureAudioSession {
   RTCAudioSessionConfiguration *configuration =
       [[RTCAudioSessionConfiguration alloc] init];
-  configuration.category = AVAudioSessionCategoryAmbient;
-  configuration.categoryOptions = AVAudioSessionCategoryOptionDuckOthers;
-  configuration.mode = AVAudioSessionModeDefault;
+//  configuration.category = AVAudioSessionCategoryAmbient;
+    configuration.category = AVAudioSessionCategoryPlayAndRecord;
+
+  configuration.categoryOptions = AVAudioSessionCategoryOptionMixWithOthers;
+//  configuration.mode = AVAudioSessionModeDefault;
+    configuration.mode = AVAudioSessionModeVideoRecording;
 
   RTCAudioSession *session = [RTCAudioSession sharedInstance];
   [session lockForConfiguration];
@@ -229,7 +235,12 @@ static NSString *const loopbackLaunchProcessArgument = @"loopback";
   NSString *audioFilePath =
       [[NSBundle mainBundle] pathForResource:@"mozart" ofType:@"mp3"];
   NSURL *audioFileURL = [NSURL URLWithString:audioFilePath];
-  _audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:audioFileURL
+    NSArray *pathComponents = [NSArray arrayWithObjects:
+                               [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject],
+                               @"MyAudioMemo1.m4a",
+                               nil];
+    NSURL *outputFileURL = [NSURL fileURLWithPathComponents:pathComponents];
+    _audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:outputFileURL
                                                         error:nil];
   _audioPlayer.numberOfLoops = -1;
   _audioPlayer.volume = 1.0;
